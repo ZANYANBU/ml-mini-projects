@@ -31,8 +31,18 @@ const C = (text, o = {}) => P(text, { align: AlignmentType.CENTER, after: o.afte
 const B = (text, o = {}) => run(text, { bold: true, ...o });
 const I = (text, o = {}) => run(text, { italics: true, ...o });
 const HEADINGS = [];
-const H1 = (text) => { HEADINGS.push([1, text]); return new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text, font: FONT })], pageBreakBefore: true }); };
-const H2 = (text) => { HEADINGS.push([2, text]); return new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text, font: FONT })] }); };
+let CH = null, SEC = 0;
+const H1 = (text) => { HEADINGS.push([1, text]); const m = /^(\d+)\./.exec(text); CH = m ? m[1] : null; SEC = 0;
+  return new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text, font: FONT })], pageBreakBefore: true }); };
+const H2 = (raw) => { const text = CH ? `${CH}.${++SEC} ${raw}` : raw; HEADINGS.push([2, text]);
+  return new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text, font: FONT })] }); };
+// a block of source code, one paragraph per line, on a light grey band
+const code = (src) => src.replace(/\s+$/, "").split("\n").map((line, i, all) => new Paragraph({
+  shading: { fill: "F3F3F3", type: ShadingType.CLEAR, color: "auto" }, keepLines: true, keepNext: i < all.length - 1,
+  spacing: { line: 240, before: i === 0 ? 80 : 0, after: i === all.length - 1 ? 200 : 0 }, indent: { left: 200, right: 200 },
+  children: [new TextRun({ text: line.replace(/\t/g, "    ") || " ", font: "Courier New", size: 17 })] }));
+const src = (rel, from, to) => fs.readFileSync(path.join(REPO, rel), "utf8").split("\n").slice(from - 1, to).join("\n");
+const cell = (rel, idx) => JSON.parse(fs.readFileSync(path.join(REPO, rel), "utf8")).cells[idx].source.join("");
 // Page numbers for the contents list: TOC_PAGES points to a JSON {heading: page} measured from a first render.
 const TOC_PAGES = process.env.TOC_PAGES ? JSON.parse(fs.readFileSync(process.env.TOC_PAGES, "utf8")) : null;
 const H3 = (text) => new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun({ text, font: FONT })] });
@@ -188,9 +198,9 @@ const TOC_AT = body.length;      // the contents list is inserted here once all 
 
 // ---------------- Chapter 1
 push(H1("1. INTRODUCTION"));
-push(H2("1.1 About the course projects"),
+push(H2("About the course projects"),
   P("21CSC305P – Machine Learning is organised in five units. For each unit, every team receives a problem statement, studies it, chooses a method from that unit, implements it, and presents it at a project review. This report collects all five projects of Team Cash Guard in one place, with the problem statement, data, method, implementation, results and conclusion of each."),
-  H2("1.2 The five projects"));
+  H2("The five projects"));
 push(tbl(1, "The five projects at a glance", [
   ["Unit", "Project", "Method", "Main result"],
   ["1", "CashGuard: ATM cash-out prediction", "Multiple linear regression from first principles", "R² 0.666 (baseline 0.483)"],
@@ -199,21 +209,62 @@ push(tbl(1, "The five projects at a glance", [
   ["4", "Drone state estimation", "LDS + Kalman filter, RTS smoother, EM", "0.43 m vs 103.4 m (238×)"],
   ["5", "Climate displacement forecast", "Bayesian Model Averaging + Gradient Boosting", "R² 0.520; 94% in 90% band"],
 ], [700, 2600, 3126, 2600]));
-push(H2("1.3 Team"));
+push(H2("Team"));
 push(tbl(1, "Team Cash Guard", [
   ["Member", "Registration number", "Main contributions"],
   ...team.members.map((m) => [m.name + (m.head ? " (team head)" : ""), m.reg, m.role]),
 ], [2400, 2200, 4426]));
-push(H2("1.4 Tools"),
+push(H2("Common methodology"),
+  P("The five projects follow the same workflow, so that every result in this report can be checked and reproduced:"),
+  numbered("Read the problem statement and restate it as a measurable task: what is predicted, from what, and what counts as success.", "wf"),
+  numbered("Find real, public data that matches the statement, and audit it: size, missing values, impossible values, and how it was collected.", "wf"),
+  numbered("Explore it with summary statistics and graphs before modelling, to see which inputs matter and what shape the relationships have.", "wf"),
+  numbered("Choose a method from the unit and justify it against the alternatives the unit teaches.", "wf"),
+  numbered("Hold data back. Every score in this report is on data the model did not see while it was fitted: a time-ordered split for Unit 1, a random held-out set for Units 2 and 5, a ground truth that the filter never reads for Unit 4.", "wf"),
+  numbered("Compare against a baseline that someone without a model would use, and report the honest margin.", "wf"),
+  numbered("Turn the result into something a user can act on, and state the limits.", "wf"));
+push(H2("Evaluation metrics"),
+  P("The regression projects (Units 1, 2 and 5) use the same error measures, with yᵢ the true value, ŷᵢ the prediction and n the number of test cases:"));
+push(tbl(1, "Evaluation metrics used in this report", [
+  ["Metric", "Definition", "Read it as"],
+  ["MAE", "(1/n) Σ |yᵢ − ŷᵢ|", "Typical size of an error, in the target’s units"],
+  ["RMSE", "√[(1/n) Σ (yᵢ − ŷᵢ)²]", "Like MAE, but large errors count more"],
+  ["R²", "1 − Σ(yᵢ − ŷᵢ)² / Σ(yᵢ − ȳ)²", "Share of the variation explained; 0 = no better than the mean"],
+  ["MAPE", "(100/n) Σ |yᵢ − ŷᵢ| / |yᵢ|", "Typical error as a percentage"],
+  ["Bias", "(1/n) Σ (ŷᵢ − yᵢ)", "Whether predictions run high or low on average"],
+  ["Silhouette (Unit 3)", "(b − a) / max(a, b) per point, averaged", "How well each point sits in its own cluster; −1 to 1"],
+  ["NEES / NIS (Unit 4)", "eᵀP⁻¹e and νᵀS⁻¹ν", "Whether the filter’s stated uncertainty matches its real errors"],
+  ["Interval coverage (Unit 5)", "Share of outcomes inside the predicted range", "Whether the uncertainty can be trusted"],
+], [1900, 3500, 3626], { left: true }));
+push(H2("Tools"),
   P("All projects are written in Python. Unit 1 deliberately uses only the Python standard library for the model (the normal equations are solved by hand). The other units use NumPy, pandas, scikit-learn and matplotlib, and Unit 4 adds pyulog and SQLite. Units 3, 4 and 5 run end to end in Google Colab and download their own data."),
   P([run("Repository: "), B(REPO_URL), run(". Each unit has its own folder with a README (problem statement, data, how to run, results), the code or notebook, the figures and the review presentation.")]));
 
+push(H2("System requirements"));
+push(tbl(1, "Software and hardware used", [
+  ["Item", "Used"],
+  ["Language", "Python 3.12 (Units 1–5); JavaScript for the Unit 3 web demo"],
+  ["Libraries", "NumPy, pandas, scikit-learn, matplotlib, seaborn; pyulog and SQLite (Unit 4); none for the Unit 1 model"],
+  ["Environment", "Google Colab (Units 3–5) or any computer with Python; Units 1–2 also run in VS Code"],
+  ["Hardware", "Any laptop: the largest job (Unit 2, 895,371 rows) fits in 2 GB of memory and runs in under a minute"],
+  ["Version control", "Git and GitHub: one public repository for all five units"],
+], [2000, 7026], { left: true }));
+push(H2("Review schedule"));
+push(tbl(1, "Project reviews", [
+  ["Review", "Unit", "Topic", "Presented"],
+  ["1", "Unit 1", "CashGuard: ATM cash-out prediction", "Problem, data, statistics, regression"],
+  ["2", "Unit 2", "Robust ocean temperature", "Huber, ridge, Bayesian regression"],
+  ["3", "Unit 3", "Warehouse SKU clustering", "K-Means, elbow, zones, live demo"],
+  ["4", "Unit 4", "Drone state estimation", "LDS, Kalman filter, RTS, EM"],
+  ["5", "Unit 5", "Climate displacement forecast", "BMA + Gradient Boosting hybrid"],
+], [1000, 1100, 3600, 3326], { left: true }));
+
 // ---------------- Chapter 2: Unit 1
 push(H1("2. UNIT 1 – CASHGUARD: ATM CASH-OUT PREDICTION"));
-push(H2("2.1 Problem statement"),
+push(H2("Problem statement"),
   P([I("Develop an ML model that predicts when an ATM will run out of cash and require replenishment. The model can use withdrawal patterns, ATM location, weekends, holidays, salary periods, and historical cash withdrawal data.")]),
   P("An ATM that runs dry loses customers and fees; one that is refilled too often wastes money on cash-in-transit trips and idle cash. The useful answer is not a demand figure but a decision: which ATMs need a refill before the next truck can arrive."),
-  H2("2.2 Dataset"),
+  H2("Dataset"),
   P("The problem statement points to the Kaggle dataset ATM Cash Demand Forecasting and Management (5,658 rows, 13 columns, 50 ATMs, 1 January 2022 to 1 January 2024). Because Kaggle requires a login, the repository includes a generator that reproduces the published statistics of the data card exactly (withdrawals mean ≈ 49,812, sd ≈ 15,218; 2% holidays; 9.6% special events); the analysis reads the real file first if it is present. Each ATM keeps a fixed location type, which the real file does not always do."));
 push(tbl(2, "Main columns", [
   ["Column", "Meaning"],
@@ -223,18 +274,29 @@ push(tbl(2, "Main columns", [
   ["Location_Type, Nearby_Competitor_ATMs, Weather_Condition", "Where the ATM is and what is around it"],
   ["Cash_Demand_Next_Day (target)", "Cash that will be withdrawn the next day"],
 ], [4200, 4826], { left: true }));
-push(H2("2.3 Exploratory analysis"),
+push(H2("Related work"),
+  P("Forecasting ATM withdrawals is a well-studied problem. The NN5 forecasting competition (2008) asked entrants to predict daily withdrawals for 111 ATMs in the United Kingdom and found that simple statistical models with strong weekly and calendar effects were hard to beat. Banks commonly use exponential smoothing and ARIMA models on each machine’s history, and regression models that add calendar and location variables. Our design follows the regression line: it explains which factors drive demand, needs little data per machine, and converts directly into a days-to-empty rule."));
+push(H2("Exploratory analysis"),
   P("Next-day demand has mean 49,894 and median 48,222 (sd 15,377), slightly right-skewed. Today’s withdrawals are by far the strongest single signal (r = +0.744), nearby competitor ATMs lower demand (r = −0.396), and the salary window (days 1–5 and 25–31 of the month) raises it by about 21% (56,035 against 46,122)."));
+push(fig(2, "unit-1-cashguard-atm/figures/01_histogram_demand.png", 5.2, "Distribution of next-day cash demand"));
+push(fig(2, "unit-1-cashguard-atm/figures/02_boxplot_location.png", 5.2, "Next-day demand by ATM location type"));
 push(fig(2, "unit-1-cashguard-atm/figures/03_correlation_heatmap.png", 4.3, "Correlation of each feature with next-day demand"));
+push(fig(2, "unit-1-cashguard-atm/figures/04_scatter_withdrawals.png", 5.0, "Today’s withdrawals against next-day demand (r = 0.744)"));
+push(fig(2, "unit-1-cashguard-atm/figures/05_bar_day_of_week.png", 5.0, "Mean next-day demand by day of the week"));
 push(fig(2, "unit-1-cashguard-atm/figures/06_violin_calendar_effects.png", 5.6, "Calendar effects: salary window, special events and holidays"));
-push(H2("2.4 Method"),
+push(H2("Method"),
   P("The target is continuous, so this is regression. CashGuard is a multiple linear regression on 25 engineered features: the numeric columns, weekend and salary-window flags, day of month, and one-hot columns for day of week, time of day, location type and weather. Features are standardised, and the weights solve the regularised normal equations"),
   eq("(XᵀX + λI) w = Xᵀy"),
   P("solved by Gaussian elimination with partial pivoting, written from scratch without NumPy or scikit-learn. Validation is time-aware: the first 70% of the calendar trains (3,960 rows, to 25 May 2023) and the rest tests (1,698 rows). A random split would let the model see the future."),
   P("The forecast becomes the decision the problem asks for:"),
   eq("net drain = predicted demand − average deposits;   days to empty = cash held ÷ net drain"),
   P("An ATM is flagged REFILL NOW when its days to empty are at most the refill lead time, assumed to be 2 days."));
-push(H2("2.5 Results"));
+push(H2("Implementation"),
+  P("The whole pipeline is one script, code/atm_cash_analysis.py, using only the Python standard library. The heart of it is the solver for the normal equations, written by hand:"),
+  ...code(src("unit-1-cashguard-atm/code/atm_cash_analysis.py", 180, 198)),
+  P("The model standardises every feature, centres the target, builds XᵀX + λI and solves it:"),
+  ...code(src("unit-1-cashguard-atm/code/atm_cash_analysis.py", 222, 237)));
+push(H2("Results"));
 push(tbl(2, "Results on the unseen test period", [
   ["Model", "MAE", "RMSE", "R²", "MAPE"],
   ["CashGuard regression", "7,065", "9,067", "0.666", "15.3%"],
@@ -243,15 +305,15 @@ push(tbl(2, "Results on the unseen test period", [
 ], [3426, 1400, 1400, 1400, 1400], { bold: [1] }));
 push(P("“Same as today” is what a bank without a model would do, so it is the bar that matters. CashGuard lowers its RMSE by 20% and explains 18 percentage points more of the variance. The largest standardised coefficients are today’s withdrawals (+9,911), nearby competitors (−2,632), Thursday (+2,168), Saturday (−1,921) and the salary window (+1,540), which match the exploratory analysis."),
   P("On the last day of data, 21 of the 50 ATMs have less than two days of cash left. Ranked by days left (the first, ATM_0005, has 1.36 days), the list is the route a cash-in-transit team would drive."));
-push(H2("2.6 Conclusion"),
+push(H2("Conclusion"),
   P("A transparent linear model, built without libraries, beats the naive forecast clearly and turns demand into a refill schedule. Its main limitation is that it under-predicts on 46.8% of test days, which is when stock-outs happen; an asymmetric loss or a safety margin would trade a few extra trips for fewer empty machines."));
 
 // ---------------- Chapter 3: Unit 2
 push(H1("3. UNIT 2 – ROBUST OCEAN TEMPERATURE FROM SALINITY"));
-push(H2("3.1 Problem statement"),
+push(H2("Problem statement"),
   P([I("Predict ocean water temperatures based on salinity measurements taken over 60+ years, using outlier-proof regression models (Huber) so that faulty sensor readings don’t corrupt the predictions.")]),
   P("A 72-year archive is stitched together from many ships, crews and instrument generations. Thermistors drift and sensors foul, and a faulty reading is usually still a physically plausible number, so a simple range check cannot remove it."),
-  H2("3.2 Dataset"),
+  H2("Dataset"),
   P("The CalCOFI Bottle Database, March 1949 to May 2021: real seawater samples off the coast of California."));
 push(tbl(3, "Data audit", [
   ["Step", "Rows"],
@@ -264,16 +326,23 @@ push(tbl(3, "Data audit", [
 ], [5526, 3500]));
 push(P("Salinity and temperature correlate at −0.505, and the relationship is clearly curved."));
 push(fig(3, "unit-2-ocean-temperature-huber/figures/fig_data.png", 6.0, "The CalCOFI data and the physical quality gate"));
-push(H2("3.3 Unit 2 concepts applied"),
+push(H2("Related work"),
+  P("Least squares is optimal when errors are Gaussian, but a single gross error can move the fit without limit. Huber (1964) proposed a loss that is quadratic near zero and linear in the tails, which bounds the influence of any one point while keeping most of the efficiency of least squares. RANSAC (Fischler and Bolles, 1981) takes the opposite approach: it fits many small random subsets and keeps the model that most points agree with. In oceanography, the temperature–salinity relationship is used to identify water masses, and quality control of historical bottle data relies on range checks and flags such as CalCOFI’s, which catch impossible values but not plausible faulty ones. That gap is what this project addresses."));
+push(H2("Unit 2 concepts applied"),
   bullet([B("Maximum likelihood: "), run("with Gaussian noise, maximising the likelihood is the same as minimising squared error (ordinary least squares).")]),
   bullet([B("Basis functions: "), run("y = wᵀφ(x) with φ a degree-5 polynomial of salinity, so a linear model fits the curve.")]),
   bullet([B("Robust regression: "), run("the Huber loss is quadratic for small residuals and linear beyond δ, so one wild reading cannot pull the fit far. δ = 1.35 keeps about 95% of least squares’ efficiency on clean data. RANSAC is the consensus-based alternative.")]),
   bullet([B("MAP with a Gaussian prior: "), run("ridge regression, with α = 0.001 chosen by cross-validation.")]),
   bullet([B("Bayesian linear regression: "), run("a full posterior over weights, which also gives a predictive standard deviation.")]),
   eq("L_δ(r) = ½ r²  if |r| ≤ δ;   δ(|r| − ½ δ)  otherwise"));
-push(H2("3.4 Method"),
+push(H2("Method"),
   P("Two lines of defence. First, a physical gate removes impossible values (salinity outside 30–37 PSU or temperature outside −2 to 35 °C) and rows CalCOFI itself flagged. Second, robust regression handles faults the gate cannot see. To measure this honestly, every model is trained on contaminated data and scored on the same clean test set; faults are injected at rates from 0 to 30% as warm-biased readings that stay inside the physical range."));
-push(H2("3.5 Results"));
+push(H2("Implementation"),
+  P("code/analysis.py reads the archive with pandas, applies the quality gate, and injects controlled faults. Real thermistor faults are warm-biased, so the injected ones are too, and every injected value stays inside the physical gate:"),
+  ...code(src("unit-2-ocean-temperature-huber/code/analysis.py", 70, 88)),
+  P("All five models share the same basis functions, so the comparison isolates the loss function and the prior:"),
+  ...code(src("unit-2-ocean-temperature-huber/code/analysis.py", 91, 101)));
+push(H2("Results"));
 push(tbl(3, "Clean test set, models trained with 10% faulty readings", [
   ["Model", "RMSE (°C)", "MAE (°C)", "R²", "Bias (°C)"],
   ["OLS (MLE / least squares)", "3.505", "2.867", "0.322", "+1.109"],
@@ -289,27 +358,35 @@ push(bullet("Huber’s bias is 7.5 times smaller than least squares’ (0.14 °C
   bullet("At 30% contamination, Huber’s RMSE is 17% lower than least squares’ (3.96 °C against 4.79 °C)."),
   bullet("Ridge and the Bayesian model do not fix the bias: a prior on the weights does nothing about a corrupted target. Regularisation and robustness solve different problems."),
   bullet("R² stays near 0.4 because salinity alone is ambiguous (the same salinity occurs at different temperatures in different water masses). The task was robustness, not R²; adding depth would raise it."));
-push(H2("3.6 Conclusion"),
+push(H2("Conclusion"),
   P("A physical gate plus Huber regression predicts ocean temperature across 72 years of real survey data and stays essentially unbiased even when one training reading in ten comes from a faulty sensor. Faulty readings no longer corrupt the predictions."));
 
 // ---------------- Chapter 4: Unit 3
 push(H1("4. UNIT 3 – WAREHOUSE SKU CLUSTERING WITH K-MEANS"));
-push(H2("4.1 Problem statement"),
+push(H2("Problem statement"),
   P([I("Partition warehouse product SKUs based on order pick frequency, seasonal demand velocity, physical dimensions, and handling requirements. Logistical managers can use these operational clusters to optimize inventory placement and minimize worker travel time during order fulfillment.")]),
-  H2("4.2 Choice of method"),
+  H2("Related work"),
+  P("Warehouses have long grouped products to cut travel. ABC analysis ranks items by pick volume (the Pareto principle: a small share of items makes up most picks), and class-based storage (Hausman, Schwarz and Graves, 1976) places the busiest class nearest the dispatch point. These methods use one dimension, usually volume of picks. Clustering lets several dimensions decide the groups at once, so that a bulky item that is picked often and a small item that is picked often can land in different zones. K-Means (Lloyd, 1982; MacQueen, 1967) is the standard partitioning algorithm for this."),
+  H2("Choice of method"),
   P("From the Unit 3 methods (K-Means, mixtures of Gaussians, hierarchical clustering, PCA and factor analysis) we chose K-Means. The task is a partition: every SKU needs exactly one storage zone. K-Means is simple, fast for thousands of SKUs, and its cluster centres read directly as zone profiles. Hierarchical clustering, mixtures of Gaussians and PCA are compared in the demo."),
-  H2("4.3 Dataset and features"),
+  H2("Dataset and features"),
   P("The Brazilian E-Commerce Public Dataset by Olist (MIT licence): 99,441 orders and 112,650 order lines placed from September 2016 to October 2018, covering 32,951 products. For the 383 products ordered at least 30 times, four features are built:"),
   bullet([B("Pick frequency: "), run("number of orders.")]),
   bullet([B("Seasonal velocity: "), run("a season index, the peak month’s orders relative to the product’s average month.")]),
   bullet([B("Physical dimensions: "), run("volume in litres from length × width × height.")]),
   bullet([B("Handling requirements: "), run("weight in kilograms (the dataset has no handling field, so weight stands in for it).")]),
   P("The features are scaled before clustering so that no single unit dominates the distance."));
-push(H2("4.4 Algorithm"),
+push(H2("Algorithm"),
   P("K-Means minimises the within-cluster sum of squared distances J = Σₖ Σ_{x∈Cₖ} ‖x − μₖ‖² by alternating two steps until nothing changes: assign every SKU to its nearest centre, then move each centre to the mean of its SKUs. The number of clusters is chosen with the elbow of J and the silhouette score."));
 push(fig(4, "unit-3-warehouse-sku-kmeans/docs/img/elbow.png", 4.4, "Elbow: within-cluster error for k = 1 to 8; the bend is at k = 4"));
+push(fig(4, "unit-3-warehouse-sku-kmeans/docs/img/silhouette.png", 4.4, "Silhouette score for k = 2 to 8; highest at k = 4"));
 push(P("The silhouette score is also highest at k = 4 (0.367, against 0.359 for k = 2 and 0.342 for k = 3), so both criteria agree."));
-push(H2("4.5 Results"));
+push(H2("Implementation"),
+  P("The Colab notebook reads Olist’s files straight from GitHub. Each SKU’s four features are built from the order lines, products and orders tables:"),
+  ...code(cell("unit-3-warehouse-sku-kmeans/notebook/warehouse_sku_kmeans.ipynb", 6).split("\n").slice(0, 10).join("\n")),
+  P("The elbow and silhouette scores come from fitting K-Means for every k from 1 to 8, with 20 random starts each:"),
+  ...code(cell("unit-3-warehouse-sku-kmeans/notebook/warehouse_sku_kmeans.ipynb", 12).split("\n").slice(0, 6).join("\n")));
+push(H2("Results"));
 push(tbl(4, "The four clusters on real Olist data", [
   ["Zone", "Cluster", "SKUs", "Avg orders", "Season index", "Volume (L)", "Weight (kg)"],
   ["A", "Fast movers", "76", "160", "2.6", "9.2", "1.1"],
@@ -317,15 +394,18 @@ push(tbl(4, "The four clusters on real Olist data", [
   ["C", "Seasonal", "25", "48", "7.4", "12.9", "1.1"],
   ["D", "Regular small items", "198", "45", "3.2", "5.1", "0.6"],
 ], [800, 2226, 900, 1300, 1300, 1250, 1250]));
+push(fig(4, "unit-3-warehouse-sku-kmeans/docs/img/cluster_averages.png", 6.0, "Average orders, season index, volume and weight of each zone"));
 push(fig(4, "unit-3-warehouse-sku-kmeans/docs/img/clusters_pca.png", 5.2, "The 383 SKUs coloured by cluster, projected onto two principal components"));
+push(fig(4, "unit-3-warehouse-sku-kmeans/docs/img/seasonal_fast.png", 5.6, "Orders per month for a fast mover and a seasonal SKU"));
+push(fig(4, "unit-3-warehouse-sku-kmeans/docs/img/aisle_zones.png", 6.0, "The four zones laid out along one aisle, most-picked nearest to packing"));
 push(P("Each cluster becomes a storage zone, the most-picked nearest to packing. In a simple one-aisle model where each group takes as much aisle as it has products, the average walk per pick falls from 63.8 m with no grouping to 46.5 m with the K-Means zones, 27% less. This is a model, not a measurement."));
 push(fig(4, "unit-3-warehouse-sku-kmeans/docs/img/walk_per_pick.png", 5.6, "Modelled walk per pick: no grouping against K-Means zones"));
-push(H2("4.6 Conclusion"),
+push(H2("Conclusion"),
   P("K-Means turns raw order history into four zones a warehouse manager can act on: fast movers near packing, bulky items on low racks, seasonal items moved in and out by season, and the long tail of small items further back. An interactive demo (one HTML file) lets the reader run K-Means step by step and watch the products move on the shelves."));
 
 // ---------------- Chapter 5: Unit 4
 push(H1("5. UNIT 4 – DRONE STATE ESTIMATION IN TURBULENT WIND"));
-push(H2("5.1 Problem statement"),
+push(H2("Problem statement"),
   P([I("Estimate the true 3D position and velocity of an autonomous drone under turbulent wind conditions by combining noisy sensor readings (IMU, altimeter, optical flow) using Linear Dynamical Systems and Kalman filtering.")]));
 push(tbl(5, "The three sensors, each inadequate on its own", [
   ["Sensor", "Rate", "Measures", "Weakness"],
@@ -334,9 +414,11 @@ push(tbl(5, "The three sensors, each inadequate on its own", [
   ["Optical flow", "30 Hz", "Horizontal velocity", "σ ≈ 0.12 m/s, and degrades with altitude"],
 ], [1500, 1000, 1900, 4626]));
 push(P("Turbulent wind pushes the aircraft around, and gusts are correlated in time, not white noise. No sensor measures the wind."));
-push(H2("5.2 Why this is a Unit 4 problem"),
+push(H2("Related work"),
+  P("Kalman (1960) gave the optimal recursive estimator for linear systems with Gaussian noise, and it has guided spacecraft since Apollo. Rauch, Tung and Striebel (1965) added the backward smoothing pass. Modern flight controllers such as PX4 run an extended Kalman filter (EKF2) that fuses IMU, barometer, optical flow and GPS. Simpler alternatives exist: a complementary filter blends two sensors with hand-tuned weights but has no uncertainty, and particle filters handle non-linear models at much higher cost. Treating wind as a state to be estimated, rather than as noise, is common in aircraft wind estimation; we use it to keep the model linear and the filter exact."));
+push(H2("Why this is a Unit 4 problem"),
   P("A Linear Dynamical System is a hidden Markov model whose hidden state is continuous. The forward pass becomes the Kalman filter, forward–backward becomes the Rauch–Tung–Striebel (RTS) smoother, Baum–Welch becomes EM with the smoother in the E-step, and because everything is linear and Gaussian the posterior stays Gaussian: a mean and a covariance are the whole answer."),
-  H2("5.3 Model"),
+  H2("Model"),
   P("The state is 9-dimensional: position, velocity and wind on each of the three axes. Per axis, with time step Δt:"),
   eq("p(t+1) = p(t) + v(t)·Δt"),
   eq("v(t+1) = v(t) + (a − k·(v(t) − w(t)))·Δt"),
@@ -344,11 +426,16 @@ push(H2("5.2 Why this is a Unit 4 problem"),
   bullet([B("Drag acts on airspeed (v − w), "), run("not ground speed. This couples the wind into the dynamics and makes it observable: the gust is inferred from how the drone is pushed off course.")]),
   bullet([B("Gusts follow an Ornstein–Uhlenbeck process, "), run("so a gust now predicts a gust a second later. This is still linear, so the Kalman filter remains exactly optimal; no extended or unscented filter is needed.")]),
   P("The Kalman filter alternates predict (move the estimate with the physics; uncertainty grows) and update (correct it with a sensor reading, weighted by the Kalman gain; uncertainty shrinks). Sensors at different rates simply update when they report."));
-push(H2("5.4 Real data"),
+push(H2("Implementation"),
+  P("core.py holds the model, the simulation, the filter, the smoother and EM; db.py writes everything to SQLite; wind.py fetches the real wind. The filter loop is the forward recursion of Unit 4, written for continuous states:"),
+  ...code(src("unit-4-drone-state-estimation/core.py", 144, 163)),
+  P("The RTS smoother is the backward half of forward–backward:"),
+  ...code(src("unit-4-drone-state-estimation/core.py", 186, 193)));
+push(H2("Real data"),
   bullet([B("Real IMU noise: "), run("a PX4 flight log from a real quadrotor (248 Hz over 69 s, 17,070 samples) is parsed with pyulog; the accelerometer noise σ = 0.289 m/s² and bias are measured from it, not assumed.")]),
   bullet([B("Real turbulence: "), run("168 hourly wind observations from the Open-Meteo archive near Kallakurichi; the flight uses the gustiest hour (21 Oct 2026, 14:00: mean 2.44 m/s, gusts 9.69 m/s), giving a gust intensity of 2.90 m/s.")]),
   bullet([B("Database: "), run("every sensor reading, the ground truth and all estimates are stored in SQLite (36,000+ rows), and accuracy is computed by an SQL JOIN against the ground truth.")]));
-push(H2("5.5 Results"));
+push(H2("Results"));
 push(tbl(5, "Accuracy, computed in SQL against the ground truth", [
   ["Method", "Position RMSE (m)", "Velocity RMSE (m/s)"],
   ["Integrating the IMU (dead reckoning)", "103.394", "4.601"],
@@ -362,16 +449,19 @@ push(bullet("The Kalman filter is 238 times more accurate than integrating the I
   bullet("EM learns the sensor noise from the data alone: starting from a wrong guess, the altimeter σ converges to 0.593 m (true 0.600 m) and the log-likelihood rises monotonically from −2,220 to −1,649."),
   bullet("Consistency tests (NIS) caught a model mismatch that RMSE hid: with a constant optical-flow noise the filter was as accurate but claimed three times too much confidence (NIS 10.15 against the ideal 2); an altitude-scaled noise fixed it (NIS 1.95)."),
   bullet("Adding GPS made short flights worse (+73% error at 60 s) and only helped after about five minutes (−57% at 300 s)."));
+push(fig(5, "unit-4-drone-state-estimation/figures/fig_1.png", 6.0, "Real accelerometer readings from the PX4 log and the measured noise that feeds Q"));
+push(fig(5, "unit-4-drone-state-estimation/slides/figures/deck_unc.png", 5.0, "Position uncertainty over time: x and y grow (no sensor measures them), z stays pinned by the altimeter"));
+push(fig(5, "unit-4-drone-state-estimation/figures/fig_2.png", 6.2, "Trajectory, states, errors inside their ±2σ envelopes, Kalman gain, wind estimate, NIS and RMSE"));
 push(fig(5, "unit-4-drone-state-estimation/slides/figures/deck_em.png", 5.8, "EM: log-likelihood per iteration, and the measured wind against the filter’s estimate"));
-push(H2("5.6 Conclusion"),
+push(H2("Conclusion"),
   P("Three weak sensors together beat any one of them by more than two orders of magnitude, and modelling the wind as part of the state recovers a quantity nothing measures. The main lesson is that being accurate and knowing you are accurate are different things: only a consistency test tells you which you have. Limits: the flight is gentle (aerobatics would need an extended filter) and the trajectory is simulated, although the noise and wind driving it are measured."));
 
 // ---------------- Chapter 6: Unit 5
 push(H1("6. UNIT 5 – PREDICTING CLIMATE-DRIVEN DISPLACEMENT"));
-push(H2("6.1 Problem statement"),
+push(H2("Problem statement"),
   P([I("Develop a hybrid model combining Bayesian Model Averaging and Gradient Boosting to predict population displacement caused by extreme climate events and support local authorities in urban planning and emergency aid distribution.")]),
   P("Displacement figures are usually known only after an event. An estimate with an honest range, available when a flood warning or cyclone forecast is issued, would let authorities pre-position tents, food and water and plan shelters."),
-  H2("6.2 Dataset"));
+  H2("Dataset"));
 push(tbl(6, "Data sources", [
   ["Source", "Content"],
   ["IDMC internal displacements associated with disasters (HDX, CC BY-IGO)", "29,698 disaster events, 2008–2025: country, dates, hazard type, people displaced"],
@@ -379,18 +469,27 @@ push(tbl(6, "Data sources", [
 ], [4200, 4826], { left: true }));
 push(P("Keeping weather-related events with at least one person displaced leaves 28,112 events in 214 countries and territories, 28,000 with complete country data. Floods are 52.8% of events, and floods and storms together cause 96% of all displacement. The target is log(1 + people displaced); inputs are event duration, season, named storm, multi-country and reporting flags, a year trend, country population, urban share, density, GDP per capita, the country’s past displacement, and hazard type."));
 push(fig(6, "unit-5-climate-displacement/figures/fig1_eda_hazards.png", 6.0, "Events by hazard type and people displaced per year"));
-push(H2("6.3 Unit 5 concepts"),
+push(fig(6, "unit-5-climate-displacement/figures/fig2_eda_distribution.png", 6.0, "Distribution of displacement (log scale) and the ten most affected countries"));
+push(fig(6, "unit-5-climate-displacement/figures/fig3_corr.png", 5.0, "Correlation between the model inputs and displacement"));
+push(H2("Related work"),
+  P("The Internal Displacement Monitoring Centre publishes the Global Report on Internal Displacement each year; its event database is the main global source of disaster displacement figures. Studies of displacement risk often use statistical models of exposure (population, urbanisation) and hazard, while operational early-warning systems increasingly use machine learning. Bayesian Model Averaging (Hoeting et al., 1999) is widely used in economics and climate science when many plausible models compete, and gradient boosting (Friedman, 2001) is among the most accurate methods for tabular data. Combining the two pairs BMA’s honest uncertainty with boosting’s accuracy."));
+push(H2("Unit 5 concepts"),
   bullet([B("Bayesian Model Averaging (BMA): "), run("instead of choosing one model, average all candidate models weighted by their posterior probability. With equal priors this is approximated by the BIC:")]),
   eq("p(y | x, D) = Σₖ p(y | x, Mₖ) p(Mₖ | D),   p(Mₖ | D) ∝ exp(−BICₖ / 2)"),
   bullet([B("Gradient Boosting: "), run("trees are added one at a time, each fitted to the current residuals and added with a small learning rate η:")]),
   eq("Fₘ(x) = Fₘ₋₁(x) + η · hₘ(x)"),
   bullet([B("Why combine them: "), run("BMA is interpretable and gives honest uncertainty but is limited to linear models; boosting captures non-linear patterns but has no built-in uncertainty.")]));
-push(H2("6.4 The hybrid model"),
+push(H2("The hybrid model"),
   numbered("Random 80/20 split: 22,400 training and 5,600 test events; numeric inputs standardised."),
   numbered("BMA: fit all 2¹³ = 8,192 subsets of the 13 numeric features by least squares (hazard type always in), weight each by exp(−BIC/2), and compute the averaged prediction and its standard deviation."),
   numbered("Gradient Boosting on BMA’s training residuals: 500 trees, depth 4, learning rate 0.05, 80% subsampling, at least 40 events per leaf."),
   numbered("Hybrid prediction = BMA prediction + boosted residual, with a 90% interval of ± 1.645 σ from BMA."));
-push(H2("6.5 Results"));
+push(H2("Implementation"),
+  P("BMA is written from scratch. XᵀX is computed once, so each of the 8,192 regressions is a small linear solve, and each model’s weight comes from its BIC:"),
+  ...code(cell("unit-5-climate-displacement/Climate_Displacement_BMA_GradientBoosting.ipynb", 15).split("\n").slice(0, 18).join("\n")),
+  P("The hybrid step fits Gradient Boosting to what BMA got wrong and adds it back:"),
+  ...code(cell("unit-5-climate-displacement/Climate_Displacement_BMA_GradientBoosting.ipynb", 20)));
+push(H2("Results"));
 push(tbl(6, "Performance on 5,600 unseen events", [
   ["Model", "RMSE (log)", "MAE (log)", "R²", "Typical error"],
   ["BMA (averaged linear models)", "2.187", "1.740", "0.361", "×4.3"],
@@ -398,11 +497,13 @@ push(tbl(6, "Performance on 5,600 unseen events", [
   ["Hybrid BMA + Gradient Boosting", "1.897", "1.481", "0.520", "×3.4"],
 ], [3426, 1400, 1400, 1400, 1400], { bold: [3] }));
 push(fig(6, "unit-5-climate-displacement/figures/fig4_bma_pip.png", 5.0, "BMA posterior inclusion probability of each feature"));
+push(fig(6, "unit-5-climate-displacement/figures/fig5_comparison.png", 6.0, "RMSE, MAE and R² of the three models"));
+push(fig(6, "unit-5-climate-displacement/figures/fig6_actual_vs_pred.png", 6.0, "Hybrid predictions against actual values, and Gradient Boosting feature importances"));
 push(fig(6, "unit-5-climate-displacement/figures/fig7_intervals.png", 6.0, "Hybrid predictions with 90% BMA intervals for 40 test events"));
 push(bullet("The hybrid is the most accurate of the three; boosting adds about 16 points of explained variance over BMA."),
   bullet("94% of real outcomes fall inside the nominal 90% interval, so the ranges can be trusted (slightly conservative)."),
   bullet("Nine features have inclusion probability close to 1 (duration, season, named storm, reporting trend, population, urban share, density and the country’s history); the single best model has posterior probability 0.78, so averaging still matters for the remaining 22%."));
-push(H2("6.6 Supporting local authorities"),
+push(H2("Supporting local authorities"),
   P("A plan_aid() function converts a forecast into supplies using the Sphere humanitarian standards: 15 litres of water per person per day, 3.5 m² of covered space per person and one family tent per five people."));
 push(tbl(6, "Example: a named typhoon in the Philippines in November, lasting 3 days", [
   ["Scenario", "People displaced", "Family tents", "Shelter (m²)", "Water, 7 days (L)"],
@@ -410,7 +511,7 @@ push(tbl(6, "Example: a named typhoon in the Philippines in November, lasting 3 
   ["Expected", "48,810", "9,762", "170,835", "5,125,050"],
   ["High (95%)", "1,769,056", "353,812", "6,191,696", "185,750,880"],
 ], [1826, 1800, 1700, 1700, 2000]));
-push(H2("6.7 Conclusion"),
+push(H2("Conclusion"),
   P("Combining models works: BMA explains which factors drive displacement and how certain the forecast is, and Gradient Boosting adds the accuracy a linear model lacks. Limits: the data has no physical intensity (rainfall, wind speed, flood depth), predictions are at country level, and IDMC’s reporting changed after 2023, which makes a strict past-to-future test harder (R² ≈ 0.18)."));
 
 // ---------------- Chapter 7
@@ -445,6 +546,11 @@ push(H1("REFERENCES"));
   "Internal Displacement Monitoring Centre, “Internal displacements associated with disasters.” https://data.humdata.org/dataset/idmc-internal-displacements-new-displacements-associated-with-disasters",
   "World Bank Open Data. https://data.worldbank.org",
   "The Sphere Handbook: Humanitarian Charter and Minimum Standards in Humanitarian Response, 2018.",
+  "S. F. Crone, “NN5 forecasting competition for artificial neural networks and computational intelligence,” 2008. http://www.neural-forecasting-competition.com/NN5/",
+  "M. A. Fischler and R. C. Bolles, “Random sample consensus,” Communications of the ACM, 24(6), 381–395, 1981.",
+  "J. MacQueen, “Some methods for classification and analysis of multivariate observations,” Proc. 5th Berkeley Symposium, 281–297, 1967.",
+  "W. H. Hausman, L. B. Schwarz and S. C. Graves, “Optimal storage assignment in automatic warehousing systems,” Management Science, 22(6), 629–638, 1976.",
+  "Internal Displacement Monitoring Centre, Global Report on Internal Displacement 2025.",
 ].forEach((r) => push(numbered(r, "refs")));
 
 // ---------------- Appendix
@@ -473,6 +579,41 @@ body.splice(TOC_AT, 0, ...HEADINGS.map(([lvl, text]) => new Paragraph({
 })));
 fs.writeFileSync(path.join(HERE, ".headings.json"), JSON.stringify(HEADINGS));
 
+// ---------------- Appendix B: team contributions
+push(H1("APPENDIX B – TEAM CONTRIBUTIONS"));
+push(P("The team worked together on every unit. The table records who led each part."));
+push(tbl("B", "Contributions by unit", [
+  ["Unit", "V. Anbu Chelvan", "S. Roopesh", "B. Charith Reddy", "Y. Rupesh Reddy"],
+  ["1", "Model, refill alert, scripts", "Problem study", "Data preparation", "Graphs, slides"],
+  ["2", "Robust models, sweep", "Problem study", "Quality gate, data audit", "Figures, slides"],
+  ["3", "Warehouse solution, demo website, notebook, repository", "Problem study and choice of method", "Method and data preparation", "Clustering results and graphs"],
+  ["4", "LDS model, wind state, Kalman filter, RTS smoother", "PX4 log retrieval, IMU calibration, SQLite database", "NEES/NIS tests, GPS study", "EM noise learning, figures, slides"],
+  ["5", "BMA, hybrid model, aid planner", "Data sources", "Feature engineering", "Figures, slides"],
+], [700, 2200, 2000, 2000, 2126], { left: true }));
+
+// ---------------- Appendix C: sample outputs
+push(H1("APPENDIX C – SAMPLE OUTPUTS"));
+push(H3("C.1 Unit 1: CashGuard results and refill alert"));
+push(...code(fs.readFileSync(path.join(REPO, "unit-1-cashguard-atm/results/run_output.txt"), "utf8").split("\n").slice(56, 100).join("\n")));
+push(H3("C.2 Unit 4: full run of the drone notebook"));
+push(...code(fs.readFileSync(path.join(REPO, "unit-4-drone-state-estimation/run_output.txt"), "utf8").split("\n").slice(3, 62).join("\n")));
+
+// ---------------- Appendix D: code listings
+push(H1("APPENDIX D – KEY CODE LISTINGS"));
+push(P("Selected listings from the repository. The complete code of every unit is in its folder."));
+push(H3("D.1 Unit 1: CashGuard regression model (atm_cash_analysis.py)"));
+push(...code(src("unit-1-cashguard-atm/code/atm_cash_analysis.py", 201, 241)));
+push(H3("D.2 Unit 2: model comparison and contamination test (analysis.py)"));
+push(...code(src("unit-2-ocean-temperature-huber/code/analysis.py", 103, 124)));
+push(H3("D.3 Unit 3: clustering and zone naming (warehouse_sku_kmeans.ipynb)"));
+push(...code(cell("unit-3-warehouse-sku-kmeans/notebook/warehouse_sku_kmeans.ipynb", 16)));
+push(...code(cell("unit-3-warehouse-sku-kmeans/notebook/warehouse_sku_kmeans.ipynb", 28)));
+push(H3("D.4 Unit 4: Kalman filter (core.py)"));
+push(...code(src("unit-4-drone-state-estimation/core.py", 120, 175)));
+push(H3("D.5 Unit 5: BMA prediction and the aid planner (notebook)"));
+push(...code(cell("unit-5-climate-displacement/Climate_Displacement_BMA_GradientBoosting.ipynb", 15).split("\n").slice(22, 30).join("\n")));
+push(...code(cell("unit-5-climate-displacement/Climate_Displacement_BMA_GradientBoosting.ipynb", 27)));
+
 // ---------------------------------------------------------------- document
 const doc = new Document({
   creator: team.members[0].name,
@@ -494,6 +635,8 @@ const doc = new Document({
       { reference: "bullets", levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
         style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
       { reference: "steps", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
+        style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
+      { reference: "wf", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
         style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
       { reference: "refs", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "[%1]", alignment: AlignmentType.LEFT,
         style: { paragraph: { indent: { left: 720, hanging: 720 } } } }] },
