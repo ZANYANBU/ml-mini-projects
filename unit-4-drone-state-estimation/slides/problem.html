@@ -1,0 +1,25 @@
+<section id="problem" data-transition="fade" style="background:#FBFBF8;color:#14213D;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<h2 style="font-family:'Source Serif 4', Georgia, serif;font-size:76px;font-weight:400;line-height:1.1">Three sensors. None of them enough.</h2>
+<div style="display:flex;gap:32px">
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#FFFFFF;padding:48px;border:1px solid #E3E6E4;border-radius:16px">
+<h3 style="font-size:46px;font-weight:600">IMU</h3>
+<p style="font-size:34px;line-height:1.4;color:#14213D">Acceleration</p>
+<p style="font-size:32px;line-height:1.4;color:#B45309">Drifts. Badly.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#FFFFFF;padding:48px;border:1px solid #E3E6E4;border-radius:16px">
+<h3 style="font-size:46px;font-weight:600">Altimeter</h3>
+<p style="font-size:34px;line-height:1.4;color:#14213D">Height only</p>
+<p style="font-size:32px;line-height:1.4;color:#B45309">Blind sideways.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#FFFFFF;padding:48px;border:1px solid #E3E6E4;border-radius:16px">
+<h3 style="font-size:46px;font-weight:600">Optical flow</h3>
+<p style="font-size:34px;line-height:1.4;color:#14213D">Sideways speed</p>
+<p style="font-size:32px;line-height:1.4;color:#B45309">Worse up high.</p>
+</div>
+</div>
+<div style="background:#14213D;padding:48px;border-radius:16px">
+<p style="font-size:40px;line-height:1.45;color:#FBFBF8"><b>And the wind is invisible.</b> It moved our drone <b style="color:#F0B46A">103 metres</b> in sixty seconds.</p>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;font-size:24px;color:#6A7179">They also disagree — and report at three different rates.</p>
+<aside>Each sensor is individually inadequate. The IMU gives acceleration, and integrating it twice turns a small bias into a huge position error — it drifted over a hundred metres in our one-minute flight. The altimeter gives height and nothing about horizontal position. Optical flow gives horizontal velocity but degrades with altitude, because there are fewer ground features to track — remember that detail, it comes back later as the error we caught. On top of all that, the wind is never measured by anything, and it is the dominant disturbance. They also run at three different rates, so they cannot simply be lined up and compared. Our job is to fuse three partial, noisy, differently-timed signals into one consistent estimate, and to recover the wind as a bonus.</aside>
+</section>

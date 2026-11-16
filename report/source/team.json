@@ -1,0 +1,11 @@
+{
+  "team_name": "Cash Guard",
+  "repo_url": "https://github.com/ZANYANBU/ml-mini-projects",
+  "faculty": {"name": "[FACULTY NAME]", "designation": "[Designation]"},
+  "members": [
+    {"name": "V. Anbu Chelvan", "reg": "REG NUM", "head": true, "role": "Team head: models, implementation, notebooks, demo website, repository, report"},
+    {"name": "S. Roopesh", "reg": "REG NUM", "role": "Problem study and choice of method; data retrieval and SQLite database (Unit 4)"},
+    {"name": "B. Charith Reddy", "reg": "REG NUM", "role": "Method and data preparation; consistency tests and GPS study (Unit 4)"},
+    {"name": "Y. Rupesh Reddy", "reg": "REG NUM", "role": "Results, graphs and slide decks; EM figures (Unit 4)"}
+  ]
+}

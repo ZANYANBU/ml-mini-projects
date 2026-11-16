@@ -1,0 +1,21 @@
+<section id="model" data-transition="fade" style="background:#FBFBF8;color:#14213D;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:56px">
+<h2 style="font-family:'Source Serif 4', Georgia, serif;font-size:76px;font-weight:400;line-height:1.1">Wind is not noise. It is an answer.</h2>
+<div style="display:flex;gap:32px">
+<div style="flex:1;background:#14213D;padding:48px;border-radius:16px;display:flex;flex-direction:column;gap:20px">
+<p style="font-size:28px;color:#7FA7F5;letter-spacing:2px;text-transform:uppercase;font-weight:600">The filter tracks</p>
+<p style="font-size:44px;color:#FBFBF8;line-height:1.7">Position<br>Velocity<br><b style="color:#F0B46A">Wind</b></p>
+</div>
+<div style="flex:1;background:#FFFFFF;padding:48px;border:1px solid #E3E6E4;border-radius:16px;display:flex;flex-direction:column;gap:20px">
+<h3 style="font-size:38px;font-weight:600;color:#2563EB">Why wind is findable</h3>
+<p style="font-size:34px;line-height:1.45;color:#4A5568">Drag depends on speed <b style="color:#14213D">through the air</b>, not over the ground.</p>
+<p style="font-size:34px;line-height:1.45;color:#4A5568">So a gust shows up as a mismatch the filter can see.</p>
+</div>
+<div style="flex:1;background:#FFFFFF;padding:48px;border:1px solid #E3E6E4;border-radius:16px;display:flex;flex-direction:column;gap:20px">
+<h3 style="font-size:38px;font-weight:600;color:#2563EB">Gusts fade, not flicker</h3>
+<p style="font-size:34px;line-height:1.45;color:#4A5568">A gust now means a gust in a second.</p>
+<p style="font-size:34px;line-height:1.45;color:#14213D">Still <b>linear</b> — so Kalman stays optimal.</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;font-size:24px;color:#6A7179">Nine numbers: three directions × three quantities.</p>
+<aside>One idea on this slide. Most treatments regard wind as noise to be tolerated. We list it as a thing to be estimated, next to position and velocity, so the filter must work it out. Two details make that possible. First, air resistance depends on the drone's speed through the air, not over the ground. That is what links wind into the equations — a gust changes how the aircraft is pushed, and the filter notices the mismatch between prediction and measurement. Model drag against ground speed instead and the wind becomes unrecoverable in principle, not merely hard. Second, we let gusts fade gradually rather than flicker randomly, because real turbulence lasts seconds. People assume that realism forces an extended Kalman filter, but it does not: this stays linear, so the ordinary filter is still exactly optimal. Realism at no cost.</aside>
+</section>

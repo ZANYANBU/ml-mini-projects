@@ -1,0 +1,47 @@
+CashGuard poster charts — source file: atm_cash_management_dataset_sample.csv
+rows: 5,658   ATMs: 50   period: 2022-01-01 to 2024-01-01
+
+  saved poster_charts/01_histogram_demand.png
+    mean=49,894 median=48,222 sd=15,377 Q1=38,500 Q3=59,482 IQR=20,983 skew=+0.610 min=11,075 max=108,000
+
+  saved poster_charts/02_boxplot_location.png
+    Supermarket    n=1,181  Q1=  39,190  med=  50,758  Q3=  63,161  IQR=  23,971  mean=  52,300
+    Bank Branch    n=1,120  Q1=  39,956  med=  49,161  Q3=  61,330  IQR=  21,374  mean=  51,279
+    Mall           n=1,084  Q1=  37,797  med=  48,786  Q3=  61,356  IQR=  23,559  mean=  50,607
+    Standalone     n=1,068  Q1=  38,426  med=  46,760  Q3=  55,464  IQR=  17,039  mean=  47,666
+    Gas Station    n=1,205  Q1=  37,350  med=  46,641  Q3=  56,292  IQR=  18,942  mean=  47,583
+
+  saved poster_charts/03_correlation_heatmap.png
+    r(Withdrawals, demand) = +0.744
+    r(Competitors, demand) = -0.396
+    r(Salary win., demand) = +0.313
+    r(Holiday, demand) = +0.032
+    r(Weekend, demand) = -0.023
+    r(Sp. event, demand) = +0.014
+    r(Prev. cash, demand) = +0.011
+    r(Deposits, demand) = -0.000
+
+  saved poster_charts/04_scatter_withdrawals.png
+    slope=0.7556 intercept=12,268 r=0.7439 R2=0.5534
+
+  saved poster_charts/05_bar_day_of_week.png
+    Monday     n=  795  mean=   48,546  ±1,023
+    Tuesday    n=  842  mean=   46,403  ±927
+    Wednesday  n=  785  mean=   47,491  ±1,024
+    Thursday   n=  812  mean=   55,038  ±1,114
+    Friday     n=  842  mean=   53,006  ±1,077
+    Saturday   n=  767  mean=   45,794  ±977
+    Sunday     n=  815  mean=   52,650  ±1,077
+
+  saved poster_charts/06_violin_calendar_effects.png
+    Normal days                  n=3,505  mean=   46,122  med=   44,728
+    Salary window (1–5 & 25–31)  n=2,153  mean=   56,035  med=   54,039
+    No event                     n=5,120  mean=   49,825  med=   48,097
+    Special event                n=  538  mean=   50,553  med=   49,120
+    Working day                  n=5,554  mean=   49,827  med=   48,164
+    Holiday                      n=  104  mean=   53,489  med=   50,466
+
+  saved poster_charts/07_summary_table.png
+
+  saved poster_charts/CashGuard_Poster_Charts.pdf
+  saved poster_charts/A4_cut_sheets.pdf  (7 graphs, 125 mm wide each)

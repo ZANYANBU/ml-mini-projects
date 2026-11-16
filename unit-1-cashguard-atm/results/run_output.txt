@@ -1,0 +1,105 @@
+Reading data/atm_cash_management_dataset_sample.csv
+
+==========================================================================
+1. DATASET AND STATISTICAL ANALYSIS
+==========================================================================
+  rows: 5,658    columns: 13
+  period: 2022-01-01  to  2024-01-01
+  ATMs:   50
+  missing values: 0
+
+  Numeric summary
+    column                           min        max       mean     median        sd    skew
+    Total_Withdrawals              6,401    107,790     49,794     47,612    15,138    0.70
+    Total_Deposits                     0     25,967     10,191     10,183     4,792    0.08
+    Previous_Day_Cash_Level       24,862    172,227    100,391    100,757    20,493    0.03
+    Cash_Demand_Next_Day          11,075    108,000     49,894     48,222    15,377    0.61
+
+  Categorical frequencies
+    Day_of_Week          7 levels: Tuesday 15%, Friday 15%, Sunday 14%, Thursday 14%, Monday 14%, Wednesday 14%, Saturday 14%
+    Time_of_Day          4 levels: Night 25%, Afternoon 25%, Morning 25%, Evening 25%
+    Location_Type        5 levels: Gas Station 21%, Supermarket 21%, Bank Branch 20%, Mall 19%, Standalone 19%
+    Weather_Condition    4 levels: Sunny 40%, Cloudy 29%, Rainy 25%, Stormy 5%
+    Holiday_Flag         104 rows set to 1 (1.84%)
+    Special_Event_Flag   538 rows set to 1 (9.51%)
+
+  Distribution of Cash_Demand_Next_Day
+       11,075 -    20,768 | #                                           38
+       20,768 -    30,460 | ############                               440
+       30,460 -    40,152 | ##################################       1,182
+       40,152 -    49,845 | ######################################## 1,385
+       49,845 -    59,538 | ##################################       1,206
+       59,538 -    69,230 | ######################                     767
+       69,230 -    78,922 | ###########                                391
+       78,922 -    88,615 | ####                                       157
+       88,615 -    98,308 | #                                           61
+       98,308 -   108,000 |                                             31
+
+  Mean next-day demand by day of week
+    Monday           48,546   (795 rows)
+    Tuesday          46,403   (842 rows)
+    Wednesday        47,491   (785 rows)
+    Thursday         55,038   (812 rows)
+    Friday           53,006   (842 rows)
+    Saturday         45,794   (767 rows)
+    Sunday           52,650   (815 rows)
+    Note: the target is NEXT day's demand, so this effect reads
+    shifted by one day - a Thursday row carries Friday's demand.
+
+==========================================================================
+2. FEATURE ENGINEERING AND MODEL
+==========================================================================
+  features built: 25
+    Total_Withdrawals, Total_Deposits, Previous_Day_Cash_Level, Nearby_Competitor_ATMs, Holiday_Flag, Special_Event_Flag, is_weekend, is_salary_window, day_of_month
+    plus one-hot columns for Day_of_Week, Time_of_Day, Location_Type, Weather_Condition
+
+  train: 3,960 rows  (up to 2023-05-25)
+  test:  1,698 rows  (from 2023-05-25 onwards)
+
+  Results on the unseen test period
+    CashGuard regression         MAE     7,065   RMSE     9,067   R2  0.666   MAPE  15.3%
+    baseline: training mean      MAE    12,399   RMSE    15,688   R2 -0.001   MAPE  27.5%
+    baseline: same as today      MAE     8,563   RMSE    11,279   R2  0.483   MAPE  18.1%
+
+  Under-prediction rate: 46.8% of test days (these are the ones that cause a stock-out)
+
+  Which features matter most (standardised coefficients)
+    Total_Withdrawals              +9,911  ##############################
+    Nearby_Competitor_ATMs         -2,632  #######
+    Day_of_Week=Thursday           +2,168  ######
+    Day_of_Week=Saturday           -1,921  #####
+    Day_of_Week=Sunday             +1,823  #####
+    is_salary_window               +1,540  ####
+    Time_of_Day=Night              -1,499  ####
+    Day_of_Week=Monday             -1,311  ###
+    day_of_month                   +1,140  ###
+    Location_Type=Standalone         -964  ##
+
+==========================================================================
+3. REPLENISHMENT ALERT  (the answer the problem statement wants)
+==========================================================================
+  Refill lead time assumed: 2 days
+
+    ATM       last seen      cash held   forecast  net drain  days left  status
+    ATM_0005  2023-12-29        87,463     74,503     64,373       1.36  REFILL NOW
+    ATM_0046  2023-12-30        90,158     74,818     65,016       1.39  REFILL NOW
+    ATM_0039  2023-12-28        96,861     77,638     66,768       1.45  REFILL NOW
+    ATM_0020  2023-12-30        80,349     62,586     53,078       1.51  REFILL NOW
+    ATM_0021  2023-12-31        83,243     64,407     54,214       1.54  REFILL NOW
+    ATM_0016  2023-12-30        83,355     62,675     53,567       1.56  REFILL NOW
+    ATM_0008  2024-01-01        64,191     50,864     40,871       1.57  REFILL NOW
+    ATM_0024  2023-12-20        77,108     59,259     48,905       1.58  REFILL NOW
+    ATM_0019  2023-12-30        87,778     65,290     54,974       1.60  REFILL NOW
+    ATM_0035  2023-12-28        84,985     63,626     52,640       1.61  REFILL NOW
+    ATM_0036  2024-01-01        87,773     64,518     54,140       1.62  REFILL NOW
+    ATM_0011  2023-12-29        79,554     59,111     48,245       1.65  REFILL NOW
+
+  21 of 50 ATMs need a refill within the 2-day lead time.
+  Ranking by days-left is the schedule a cash-in-transit team would drive.
+
+==========================================================================
+DONE
+==========================================================================
+  Statistics above cover Review 1; the hand-coded regression and
+  engineered features cover Review 2; the baseline comparison and
+  the alert table are the starting point for Review 3.
