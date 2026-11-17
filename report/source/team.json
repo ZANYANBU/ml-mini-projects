@@ -1,7 +1,7 @@
 {
   "team_name": "Cash Guard",
   "repo_url": "https://github.com/ZANYANBU/ml-mini-projects",
-  "faculty": {"name": "D. Kavi Priya", "designation": "Assistant Professor"},
+  "faculty": {"name": "Dr. D. Kavi Priya", "designation": "Assistant Professor"},
   "members": [
     {"name": "V. Anbu Chelvan", "reg": "RA2411003011803", "head": true, "role": "Team head: models, implementation, notebooks, demo website, repository, report"},
     {"name": "S. Roopesh", "reg": "RA2411003011766", "role": "Problem study and choice of method; data retrieval and SQLite database (Unit 4)"},
